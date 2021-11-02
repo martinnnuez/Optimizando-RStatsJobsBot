@@ -1,0 +1,396 @@
+---
+title: "Optimizando \\@RStatsJobsBot"
+subtitle: "Un modelo de aprendizaje automático para clasificar tweets de ofertas de empleo"
+author: "Rodriguez Nuñez Martin y Rodriguez Juan Cruz"
+institute: "CONICET"
+date: ""
+output:
+  xaringan::moon_reader:
+    lib_dir: libs
+    nature:
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+---
+background-image: url(https://pbs.twimg.com/profile_images/1271630163504246786/5D_ReGoO_400x400.jpg)
+class: center
+background-position: 50% 50%
+# Introduccion
+
+## @RStatsJobsBot
+
+```{r setup, include=FALSE}
+options(htmltools.dir.version = FALSE, htmltools.preserve.raw = FALSE)
+```
+
+```{r, include=FALSE}
+library(tidyverse)
+```
+
+---
+class: inverse, center, middle
+
+# Itinerario
+
+## 1. Limpieza y preparación de los datos.
+
+ **1.1** Convertir los datos a un **Corpus**. 
+
+ **1.2** Aplicar técnicas de limpieza y transformación.
+
+ **1.3** Convertir los datos a una **Document Term Matrix**.
+
+## 2. Modelado predictivo.
+
+ **2.1** Establecer cuál es el mejor algoritmo de clasificación.
+
+ **2.2** Determinar hiperparámetros influyentes en las dimensiones de la **DTM**.
+
+## 3. Evaluación del modelo predictivo.
+
+---
+class: inverse
+
+# Variables predictoras
+
+- Terminos en cada uno de los tweets.
+
+- N-grams.
+
+- Cantidad de paginas web en el tweet.
+
+- Cantidad de e-mails en el tweet.
+
+- Screen name.
+
+- Source.
+
+---
+
+# 1. Limpieza y preparación de los datos.
+
+- **1.1** Convertir los datos a un **Corpus**. 
+
+```{r eval=FALSE, tidy=FALSE}
+# Aislamos el texto en un vector source.
+tweet_source <- VectorSource(tweets_text) 
+
+# Creamos el corpus
+corpus <- VCorpus(tweet_source) 
+```
+
++ **Corpus**
+
+---
+
+# 1. Limpieza y preparación de los datos.
+
+- **1.2** Aplicar técnicas de limpieza y transformación.
+
+Las principales técnicas aplicadas fueron:
+
+```{r eval=FALSE, tidy=FALSE}
+# Convertir a texto sin formato
+corpus <- tm_map(corpus, content_transformer(PlainTextDocument)) 
+
+# Pasar texto a minúscula
+corpus <- tm_map(corpus, content_transformer(tolower)) 
+
+# Reemplazar símbolos 
+corpus <- tm_map(corpus, content_transformer(qdap:::replace_symbol)) 
+
+# Remover símbolosde puntuación
+corpus <- tm_map(corpus, content_transformer(removePunctuation))
+
+# Remover stop words
+corpus <- tm_map(corpus,content_transformer(RemoveStopwords)) 
+
+# Stemming
+corpus <- tm_map(corpus, content_transformer(stemDocument)) 
+```
+
++ **Stop Words**, **Stemming**
+
+---
+class: center, middle
+# Document Term Matrix (DTM)
+
+- **1.3** Convertir los datos a una **Document Term Matrix**.
+
+
+![](https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSyh7WO_3lGciVdf7tKqn9t1NxCNRSuBeZ9iQt120OQwPPhqeGEfALPg3ROmm7k5Je92MM&usqp=CAU)
+
+---
+
+# 2. Modelado Predictivo:
+
+- **2.1** Establecer cuál es el mejor algoritmo de clasificación.
+
+- **2.2** Determinar hiperparámetros influyentes en las dimensiones de la **DTM**.
+
+### Hiperparámetros influyentes en la dimensión de la **DTM**:
+
+- Número máximo de **N-grams**. Valores evaluados= 1 ,2 ,3 ,4 ,5, 6 , 7 y 8. 
+
+- **Sparsity** de la DTM. Valores evaluados= 0.990, 0.991, 0.992, 0.993, 0.994, 0.995, 0.996, 0.997, 0.998, 0.999.
+
+### Algoritmos de clasificación evaluados:
+
+- Generalized Linear Model (GLM), DeepLearning, Distributed Random Forest (DRF) y Gradient Boosting Machine (GBM).
+
+---
+
+# 2. Modelado Predictivo
+
+## Proceso:
+
+- Se crearon **8 DTM** distintas (**N-grams**). 
+
+- Se filtraron **10 sparcity** distintas para cada una de las DTM.
+
+- Se ajustaron distintos algoritmos de clasificacion a cada una de las **80 matrices de datos**. 
+
+---
+
+# 2. Modelado Predictivo
+
+El problema de clasificación presentado tiene una variable respuesta con dos posibles categorías: 
+
+- Propuesta de trabajo verdadera (TRUE).
+
+- Propuesta de trabajo falsa (FALSE).
+
+
+## Objetivo:
+
+- **a)** Minimizar la **ratio de error para los falsos positivos** (propuestas de trabajo falsas clasificadas como verdaderas). 
+
+- **b)** Minimizar la **ratio de error para los falsos negativos** (propuestas de trabajo verdaderas clasificadas como falsas).
+
+---
+
+# 2. Modelado Predictivo 
+
+Para el ajuste de los distintos algoritmos se procedió a implementar la herramienta de [AutoML](https://docs.h2o.ai/h2o/latest-stable/h2o-docs/automl.html) perteneciente al paquete de [h2o](https://docs.h2o.ai/?_ga=2.60019118.2091856297.1589459712-618404104.1589459712#h2o), tomando como métrica a optimizar el **mean_per_class_error**.
+
+???
++ División de datos 90/10 (entrenamiento y testeo).
+
++ Ajuste de los diferentes algoritmos predictivos por **10 fold cross validation** en el set de datos de **entrenamiento**.
+
++ Selección mejor modelo por desempeño en la base de datos de **testeo**. 
+
++ Evaluacion del modelo en el set de datos de generado hasta el dia de la fecha.
+---
+
+## Resultados
+### Ejemplo para caso particular de N-grams y sparcity:
+```{r echo=FALSE}
+resultados <- utils::read.table(here::here("C:/Users/marti/Desktop/Tweeter/Ultimo/ResultadosAutoml_cv_train.txt"),sep = ";")
+resultados<-resultados %>%
+  mutate(model_id_sim = str_sub(Model,1,4))
+
+resultados<-resultados %>%
+  mutate(model_id_sim = str_sub(Model,1,4)) %>% 
+  rename(Model. = model_id_sim,
+         `Error F+` = "ErrorF..1", # Les cambio el nombre pq el objetivo es minimizar los falsos true que son los falsos positivos
+         `Error F-` = "ErrorF.") %>% # y aca los falsos positivos son los ErrorF..1
+  select(c("Model.","MeanError",`Error F+`,`Error F-`,"accuracy")) %>% 
+  arrange(MeanError) %>%
+  mutate_if(is.numeric, round, 3)
+
+resultados[-c(6:10),] %>% DT::datatable(
+  extensions = 'FixedColumns',
+  options = list(
+    dom = 't',
+    scrollX = TRUE,
+    list(leftColumns = 1)
+  )
+)
+```
+
+- Para todas las combinaciones el mejor algoritmo de clasificacion: **Gradient Boosting Machine (GBM)**
+
+
+---
+## Mínimo ratio de error falsos positivos:
++ *Falsas* ofertas de trabajo clasificadas como *Verdaderas*.
+
+```{r echo=FALSE}
+resultados <- utils::read.table(here::here("C:/Users/marti/Desktop/Tweeter/Ultimo/ResultadosNgramsSparcity_test.txt"),sep = ";")
+resultados<-resultados %>%
+  mutate(Model. = str_sub(Model,1,4)) %>%
+  rename(`Error F+` = "ErrorF..1",
+         `Error F-` = "ErrorF.") %>%
+  select(c("Model.","Ngrams","Sparcity","Error F+","Error F-","MeanError")) %>%
+  arrange(`Error F+`) %>%
+  mutate_if(is.numeric, round, 3)
+
+resultados[1:5,] %>% DT::datatable(
+  extensions = 'FixedColumns',
+  options = list(
+    dom = 't',
+    scrollX = TRUE,
+    list(leftColumns = 1)
+  )
+)
+```
+
+- Mejor combinacion: máximo de 4 grams y sparsity de 0.997.
+
+---
+```{r echo=FALSE, fig.height= 8, fig.width= 14}
+resultados <- utils::read.table(here::here("C:/Users/marti/Desktop/Tweeter/Ultimo/ResultadosNgramsSparcity_test.txt"),sep = ";")
+cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+ggplot(resultados, aes(x = Sparcity, y = ErrorF..1)) +
+  geom_point(aes(color=as.factor(Ngrams)),size =6)+
+  scale_colour_manual(values = cbPalette)+ #c("red", "blue", "green","yellow","black")
+  theme_bw()+ guides(color=guide_legend(title="N-grams"))+
+  scale_y_continuous(name="Ratio error F+", limits=c(0.002, 0.033)) +
+  scale_x_continuous(name="Sparcity", limits=c(0.990,0.999),breaks = seq(0.99,0.999,0.001))+
+  ggtitle("Ratio error F+ vs Sparcity para distintos N-grams en los GBM ")+
+  theme(text = element_text(size=15))
+
+```
+
++ Como consecuencia de que hay dos GBM que poseen el mismo ratio de error para los F+ se selecciono el de menor mean_per_class_error.
+
+---
+## Mínimo ratio de error falsos negativos:
++ *Verdaderas* ofertas de trabajo clasificadas como *Falsas*.
+
+```{r echo=FALSE}
+resultados <- utils::read.table(here::here("C:/Users/marti/Desktop/Tweeter/Ultimo/ResultadosNgramsSparcity_train.txt"),sep = ";")
+resultados<-resultados %>%
+  mutate(Model. = str_sub(Model,1,4)) %>%
+  rename(`Error F-` = "ErrorF.",
+         `Error F+` = "ErrorF..1") %>%
+  select(c("Model.","Ngrams","Sparcity","Error F+","Error F-","MeanError")) %>%
+  arrange(`Error F-`) %>%
+  mutate_if(is.numeric, round, 3)
+
+resultados[1:5,] %>% DT::datatable(
+  extensions = 'FixedColumns',
+  options = list(
+    dom = 't',
+    scrollX = TRUE,
+    list(leftColumns = 1)
+  )
+)
+```
+
+- Mejor combinacion: máximo de 7 grams y sparsity de 0.993.
+
+---
+```{r echo=FALSE, fig.height=8, fig.width=14, warning=FALSE}
+resultados <- utils::read.table(here::here("C:/Users/marti/Desktop/Tweeter/Ultimo/ResultadosNgramsSparcity_test.txt"),sep = ";")
+cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+ggplot(resultados, aes(x = Sparcity, y = ErrorF.)) +
+  geom_point(aes(color=as.factor(Ngrams)),size =6)+
+  scale_colour_manual(values = cbPalette)+ #c("red", "blue", "green","yellow","black")
+  theme_bw()+ guides(color=guide_legend(title="N-grams"))+
+  scale_y_continuous(name="Ratio error F-", limits=c(0.1, 0.21)) +
+  scale_x_continuous(name="Sparcity", limits=c(0.990,0.999),breaks = seq(0.99,0.999,0.001))+
+  ggtitle("Ratio error F- vs Sparcity para distintos N-grams en los GBM ")+
+  theme(text = element_text(size=15))
+
+```
+
+- Mejor combinacion: máximo de 7 grams y sparsity de 0.993.
+---
+class: center, middle, inverse
+# Conclusión
+
+Se opto por seleccionar el modelo que minimizó la **ratio de error de falsos positivos** (*Falsas* ofertas de trabajo clasificadas como *Verdaderas*).
+Así, el bot cometerá la menor cantidad de errores al funcionar de manera automática.
+
+---
+
+# Comparacion algoritmo original y algoritmo de clasficacion:
+
+Algoritmo original (izquierda) and algoritmo de desarrollado (derecha):
+
+.pull-left[
+
+```{r echo=FALSE}
+res2<- tibble::tibble(
+  "FALSE" = c(1192,131,1323),
+  "TRUE" = c(20,40,60),
+  "Error" = c(0.0165,0.7660,0.1091)
+  #"Rate"= c("=20/1212","=131/171","=151/1383")
+  )
+
+res2<- tibble::tibble(
+  "TRUE" = c(40,20,60),
+  "FALSE" = c(131,1192,1323),
+  "Totals" = c(171,1212,1383)
+  )
+res2 <- as.data.frame(res2)
+rownames(res2) <- c("TRUE","FALSE","Totals")
+knitr::kable(res2, format = 'html')
+# Anterior
+#       FALSE TRUE
+# FALSE  1192   20
+# TRUE    131   40
+
+```
+
+]
+
+.pull-right[
+
+```{r echo=FALSE}
+res1<- tibble::tibble(
+  "TRUE" = c(112,28,140),
+  "FALSE" = c(59,1184,1243),
+  "Totals" = c(171,1212,1383)
+  )
+
+res1 <- as.data.frame(res1)
+rownames(res1) <- c("TRUE","FALSE","Totals")
+knitr::kable(res1, format = 'html')
+#       FALSE TRUE
+# FALSE  1184   28
+# TRUE     59  112
+
+# Confusion Matrix (vertical: actual; across: predicted) for F1-optimal threshold:
+#        FALSE TRUE    Error     Rate
+# FALSE    633   15 0.023148  =15/648
+# TRUE      10   19 0.344828   =10/29
+# Totals   643   34 0.036928  =25/677
+
+
+
+```
+
+]
+
+###### .
+
+```{r echo=FALSE}
+metricas <- tibble::tibble(
+  "Acc." = c(0.89,0.94),
+  "Error" = c(0.11,0.06),
+  "Pres." = c(0.67,0.80),
+  "Sens."= c(0.23,0.66),
+  "Espec."= c(0.01,0.02),
+  "VPN"= c(0.13,0.32)
+  )
+metricas <- as.data.frame(metricas)
+rownames(metricas) <- c("Original","Desarrollado")
+
+metricas[c(2,1),] %>% DT::datatable(
+  extensions = 'FixedColumns',
+  options = list(
+    dom = 't',
+    scrollX = TRUE,
+    list(leftColumns = 1)
+  )
+)
+
+```
+
+---
+class: center, middle, inverse
+
+# Muchas gracias por su atencion!

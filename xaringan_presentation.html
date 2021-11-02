@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="" xml:lang="">
+  <head>
+    <title>Optimizando @RStatsJobsBot</title>
+    <meta charset="utf-8" />
+    <meta name="author" content="Rodriguez Nuñez Martin y Rodriguez Juan Cruz" />
+    <script src="libs/header-attrs/header-attrs.js"></script>
+    <link href="libs/remark-css/default.css" rel="stylesheet" />
+    <link href="libs/remark-css/default-fonts.css" rel="stylesheet" />
+    <script src="libs/htmlwidgets/htmlwidgets.js"></script>
+    <script src="libs/jquery/jquery.min.js"></script>
+    <link href="libs/datatables-css/datatables-crosstalk.css" rel="stylesheet" />
+    <script src="libs/datatables-binding/datatables.js"></script>
+    <link href="libs/dt-core/css/jquery.dataTables.min.css" rel="stylesheet" />
+    <link href="libs/dt-core/css/jquery.dataTables.extra.css" rel="stylesheet" />
+    <script src="libs/dt-core/js/jquery.dataTables.min.js"></script>
+    <link href="libs/dt-ext-fixedcolumns/css/fixedColumns.dataTables.min.css" rel="stylesheet" />
+    <script src="libs/dt-ext-fixedcolumns/js/dataTables.fixedColumns.min.js"></script>
+    <link href="libs/crosstalk/css/crosstalk.css" rel="stylesheet" />
+    <script src="libs/crosstalk/js/crosstalk.min.js"></script>
+  </head>
+  <body>
+    <textarea id="source">
+class: center, middle, inverse, title-slide
+
+# Optimizando @RStatsJobsBot
+## Un modelo de aprendizaje automático para clasificar tweets de ofertas de empleo
+### Rodriguez Nuñez Martin y Rodriguez Juan Cruz
+### CONICET
+
+---
+
+background-image: url(https://pbs.twimg.com/profile_images/1271630163504246786/5D_ReGoO_400x400.jpg)
+class: center
+background-position: 50% 50%
+# Introduccion
+
+## @RStatsJobsBot
+
+
+
+
+
+---
+class: inverse, center, middle
+
+# Itinerario
+
+## 1. Limpieza y preparación de los datos.
+
+ **1.1** Convertir los datos a un **Corpus**. 
+
+ **1.2** Aplicar técnicas de limpieza y transformación.
+
+ **1.3** Convertir los datos a una **Document Term Matrix**.
+
+## 2. Modelado predictivo.
+
+ **2.1** Establecer cuál es el mejor algoritmo de clasificación.
+
+ **2.2** Determinar hiperparámetros influyentes en las dimensiones de la **DTM**.
+
+## 3. Evaluación del modelo predictivo.
+
+---
+class: inverse
+
+# Variables predictoras
+
+- Terminos en cada uno de los tweets.
+
+- N-grams.
+
+- Cantidad de paginas web en el tweet.
+
+- Cantidad de e-mails en el tweet.
+
+- Screen name.
+
+- Source.
+
+---
+
+# 1. Limpieza y preparación de los datos.
+
+- **1.1** Convertir los datos a un **Corpus**. 
+
+
+```r
+# Aislamos el texto en un vector source.
+tweet_source &lt;- VectorSource(tweets_text) 
+
+# Creamos el corpus
+corpus &lt;- VCorpus(tweet_source) 
+```
+
++ **Corpus**
+
+---
+
+# 1. Limpieza y preparación de los datos.
+
+- **1.2** Aplicar técnicas de limpieza y transformación.
+
+Las principales técnicas aplicadas fueron:
+
+
+```r
+# Convertir a texto sin formato
+corpus &lt;- tm_map(corpus, content_transformer(PlainTextDocument)) 
+
+# Pasar texto a minúscula
+corpus &lt;- tm_map(corpus, content_transformer(tolower)) 
+
+# Reemplazar símbolos 
+corpus &lt;- tm_map(corpus, content_transformer(qdap:::replace_symbol)) 
+
+# Remover símbolosde puntuación
+corpus &lt;- tm_map(corpus, content_transformer(removePunctuation))
+
+# Remover stop words
+corpus &lt;- tm_map(corpus,content_transformer(RemoveStopwords)) 
+
+# Stemming
+corpus &lt;- tm_map(corpus, content_transformer(stemDocument)) 
+```
+
++ **Stop Words**, **Stemming**
+
+---
+class: center, middle
+# Document Term Matrix (DTM)
+
+- **1.3** Convertir los datos a una **Document Term Matrix**.
+
+
+![](https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSyh7WO_3lGciVdf7tKqn9t1NxCNRSuBeZ9iQt120OQwPPhqeGEfALPg3ROmm7k5Je92MM&amp;usqp=CAU)
+
+---
+
+# 2. Modelado Predictivo:
+
+- **2.1** Establecer cuál es el mejor algoritmo de clasificación.
+
+- **2.2** Determinar hiperparámetros influyentes en las dimensiones de la **DTM**.
+
+### Hiperparámetros influyentes en la dimensión de la **DTM**:
+
+- Número máximo de **N-grams**. Valores evaluados= 1 ,2 ,3 ,4 ,5, 6 , 7 y 8. 
+
+- **Sparsity** de la DTM. Valores evaluados= 0.990, 0.991, 0.992, 0.993, 0.994, 0.995, 0.996, 0.997, 0.998, 0.999.
+
+### Algoritmos de clasificación evaluados:
+
+- Generalized Linear Model (GLM), DeepLearning, Distributed Random Forest (DRF) y Gradient Boosting Machine (GBM).
+
+---
+
+# 2. Modelado Predictivo
+
+## Proceso:
+
+- Se crearon **8 DTM** distintas (**N-grams**). 
+
+- Se filtraron **10 sparcity** distintas para cada una de las DTM.
+
+- Se ajustaron distintos algoritmos de clasificacion a cada una de las **80 matrices de datos**. 
+
+---
+
+# 2. Modelado Predictivo
+
+El problema de clasificación presentado tiene una variable respuesta con dos posibles categorías: 
+
+- Propuesta de trabajo verdadera (TRUE).
+
+- Propuesta de trabajo falsa (FALSE).
+
+
+## Objetivo:
+
+- **a)** Minimizar la **ratio de error para los falsos positivos** (propuestas de trabajo falsas clasificadas como verdaderas). 
+
+- **b)** Minimizar la **ratio de error para los falsos negativos** (propuestas de trabajo verdaderas clasificadas como falsas).
+
+---
+
+# 2. Modelado Predictivo 
+
+Para el ajuste de los distintos algoritmos se procedió a implementar la herramienta de [AutoML](https://docs.h2o.ai/h2o/latest-stable/h2o-docs/automl.html) perteneciente al paquete de [h2o](https://docs.h2o.ai/?_ga=2.60019118.2091856297.1589459712-618404104.1589459712#h2o), tomando como métrica a optimizar el **mean_per_class_error**.
+
+???
++ División de datos 90/10 (entrenamiento y testeo).
+
++ Ajuste de los diferentes algoritmos predictivos por **10 fold cross validation** en el set de datos de **entrenamiento**.
+
++ Selección mejor modelo por desempeño en la base de datos de **testeo**. 
+
++ Evaluacion del modelo en el set de datos de generado hasta el dia de la fecha.
+---
+
+## Resultados
+### Ejemplo para caso particular de N-grams y sparcity:
+<div id="htmlwidget-4da77e55d62b30fecf29" style="width:100%;height:auto;" class="datatables html-widget"></div>
+<script type="application/json" data-for="htmlwidget-4da77e55d62b30fecf29">{"x":{"filter":"none","extensions":["FixedColumns"],"data":[["9","3","2","1","5","11"],["GBM_","DRF_","Deep","Deep","GBM_","XRT_"],[0.097,0.109,0.111,0.114,0.116,0.402],[0.025,0.031,0.026,0.027,0.03,0.268],[0.169,0.187,0.196,0.2,0.202,0.535],[0.959,0.952,0.955,0.953,0.951,0.702]],"container":"<table class=\"display\">\n  <thead>\n    <tr>\n      <th> <\/th>\n      <th>Model.<\/th>\n      <th>MeanError<\/th>\n      <th>Error F+<\/th>\n      <th>Error F-<\/th>\n      <th>accuracy<\/th>\n    <\/tr>\n  <\/thead>\n<\/table>","options":{"dom":"t","scrollX":true,"columnDefs":[{"className":"dt-right","targets":[2,3,4,5]},{"orderable":false,"targets":0}],"order":[],"autoWidth":false,"orderClasses":false}},"evals":[],"jsHooks":[]}</script>
+
+- Para todas las combinaciones el mejor algoritmo de clasificacion: **Gradient Boosting Machine (GBM)**
+
+
+---
+## Mínimo ratio de error falsos positivos:
++ *Falsas* ofertas de trabajo clasificadas como *Verdaderas*.
+
+<div id="htmlwidget-b1cff149ee774c62ba2e" style="width:100%;height:auto;" class="datatables html-widget"></div>
+<script type="application/json" data-for="htmlwidget-b1cff149ee774c62ba2e">{"x":{"filter":"none","extensions":["FixedColumns"],"data":[["103","118","30","83","85"],["GBM_","GBM_","GBM_","GBM_","GBM_"],[4,6,2,5,5],[0.997,0.996,0.99,0.994,0.995],[0.003,0.003,0.005,0.005,0.005],[0.151,0.205,0.178,0.205,0.192],[0.077,0.104,0.092,0.105,0.098]],"container":"<table class=\"display\">\n  <thead>\n    <tr>\n      <th> <\/th>\n      <th>Model.<\/th>\n      <th>Ngrams<\/th>\n      <th>Sparcity<\/th>\n      <th>Error F+<\/th>\n      <th>Error F-<\/th>\n      <th>MeanError<\/th>\n    <\/tr>\n  <\/thead>\n<\/table>","options":{"dom":"t","scrollX":true,"columnDefs":[{"className":"dt-right","targets":[2,3,4,5,6]},{"orderable":false,"targets":0}],"order":[],"autoWidth":false,"orderClasses":false}},"evals":[],"jsHooks":[]}</script>
+
+- Mejor combinacion: máximo de 4 grams y sparsity de 0.997.
+
+---
+![](xaringan_presentation_files/figure-html/unnamed-chunk-6-1.png)&lt;!-- --&gt;
+
++ Como consecuencia de que hay dos GBM que poseen el mismo ratio de error para los F+ se selecciono el de menor mean_per_class_error.
+
+---
+## Mínimo ratio de error falsos negativos:
++ *Verdaderas* ofertas de trabajo clasificadas como *Falsas*.
+
+<div id="htmlwidget-6c16b191397761f06141" style="width:100%;height:auto;" class="datatables html-widget"></div>
+<script type="application/json" data-for="htmlwidget-6c16b191397761f06141">{"x":{"filter":"none","extensions":["FixedColumns"],"data":[["132","76","44","106","126"],["GBM_","GBM_","GBM_","GBM_","GBM_"],[7,4,3,4,7],[0.993,0.994,0.998,0.999,0.99],[0.04,0.039,0.035,0.022,0.044],[0.14,0.148,0.152,0.157,0.158],[0.09,0.093,0.093,0.089,0.101]],"container":"<table class=\"display\">\n  <thead>\n    <tr>\n      <th> <\/th>\n      <th>Model.<\/th>\n      <th>Ngrams<\/th>\n      <th>Sparcity<\/th>\n      <th>Error F+<\/th>\n      <th>Error F-<\/th>\n      <th>MeanError<\/th>\n    <\/tr>\n  <\/thead>\n<\/table>","options":{"dom":"t","scrollX":true,"columnDefs":[{"className":"dt-right","targets":[2,3,4,5,6]},{"orderable":false,"targets":0}],"order":[],"autoWidth":false,"orderClasses":false}},"evals":[],"jsHooks":[]}</script>
+
+- Mejor combinacion: máximo de 7 grams y sparsity de 0.993.
+
+---
+![](xaringan_presentation_files/figure-html/unnamed-chunk-8-1.png)&lt;!-- --&gt;
+
+- Mejor combinacion: máximo de 7 grams y sparsity de 0.993.
+---
+class: center, middle, inverse
+# Conclusión
+
+Se opto por seleccionar el modelo que minimizó la **ratio de error de falsos positivos** (*Falsas* ofertas de trabajo clasificadas como *Verdaderas*).
+Así, el bot cometerá la menor cantidad de errores al funcionar de manera automática.
+
+---
+
+# Comparacion algoritmo original y algoritmo de clasficacion:
+
+Algoritmo original (izquierda) and algoritmo de desarrollado (derecha):
+
+.pull-left[
+
+&lt;table&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:left;"&gt;   &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; TRUE &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; FALSE &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; Totals &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; TRUE &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 40 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 131 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 171 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; FALSE &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 20 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1192 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1212 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Totals &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 60 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1323 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1383 &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+
+]
+
+.pull-right[
+
+&lt;table&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:left;"&gt;   &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; TRUE &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; FALSE &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; Totals &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; TRUE &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 112 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 59 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 171 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; FALSE &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 28 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1184 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1212 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Totals &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 140 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1243 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1383 &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+
+]
+
+###### .
+
+<div id="htmlwidget-28e15bf5309389de5719" style="width:100%;height:auto;" class="datatables html-widget"></div>
+<script type="application/json" data-for="htmlwidget-28e15bf5309389de5719">{"x":{"filter":"none","extensions":["FixedColumns"],"data":[["Desarrollado","Original"],[0.94,0.89],[0.06,0.11],[0.8,0.67],[0.66,0.23],[0.02,0.01],[0.32,0.13]],"container":"<table class=\"display\">\n  <thead>\n    <tr>\n      <th> <\/th>\n      <th>Acc.<\/th>\n      <th>Error<\/th>\n      <th>Pres.<\/th>\n      <th>Sens.<\/th>\n      <th>Espec.<\/th>\n      <th>VPN<\/th>\n    <\/tr>\n  <\/thead>\n<\/table>","options":{"dom":"t","scrollX":true,"columnDefs":[{"className":"dt-right","targets":[1,2,3,4,5,6]},{"orderable":false,"targets":0}],"order":[],"autoWidth":false,"orderClasses":false}},"evals":[],"jsHooks":[]}</script>
+
+---
+class: center, middle, inverse
+
+# Muchas gracias por su atencion!
+    </textarea>
+<style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
+<script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>
+<script>var slideshow = remark.create({
+"highlightStyle": "github",
+"highlightLines": true,
+"countIncrementalSlides": false
+});
+if (window.HTMLWidgets) slideshow.on('afterShowSlide', function (slide) {
+  window.dispatchEvent(new Event('resize'));
+});
+(function(d) {
+  var s = d.createElement("style"), r = d.querySelector(".remark-slide-scaler");
+  if (!r) return;
+  s.type = "text/css"; s.innerHTML = "@page {size: " + r.style.width + " " + r.style.height +"; }";
+  d.head.appendChild(s);
+})(document);
+
+(function(d) {
+  var el = d.getElementsByClassName("remark-slides-area");
+  if (!el) return;
+  var slide, slides = slideshow.getSlides(), els = el[0].children;
+  for (var i = 1; i < slides.length; i++) {
+    slide = slides[i];
+    if (slide.properties.continued === "true" || slide.properties.count === "false") {
+      els[i - 1].className += ' has-continuation';
+    }
+  }
+  var s = d.createElement("style");
+  s.type = "text/css"; s.innerHTML = "@media print { .has-continuation { display: none; } }";
+  d.head.appendChild(s);
+})(document);
+// delete the temporary CSS (for displaying all slides initially) when the user
+// starts to view slides
+(function() {
+  var deleted = false;
+  slideshow.on('beforeShowSlide', function(slide) {
+    if (deleted) return;
+    var sheets = document.styleSheets, node;
+    for (var i = 0; i < sheets.length; i++) {
+      node = sheets[i].ownerNode;
+      if (node.dataset["target"] !== "print-only") continue;
+      node.parentNode.removeChild(node);
+    }
+    deleted = true;
+  });
+})();
+(function() {
+  "use strict"
+  // Replace <script> tags in slides area to make them executable
+  var scripts = document.querySelectorAll(
+    '.remark-slides-area .remark-slide-container script'
+  );
+  if (!scripts.length) return;
+  for (var i = 0; i < scripts.length; i++) {
+    var s = document.createElement('script');
+    var code = document.createTextNode(scripts[i].textContent);
+    s.appendChild(code);
+    var scriptAttrs = scripts[i].attributes;
+    for (var j = 0; j < scriptAttrs.length; j++) {
+      s.setAttribute(scriptAttrs[j].name, scriptAttrs[j].value);
+    }
+    scripts[i].parentElement.replaceChild(s, scripts[i]);
+  }
+})();
+(function() {
+  var links = document.getElementsByTagName('a');
+  for (var i = 0; i < links.length; i++) {
+    if (/^(https?:)?\/\//.test(links[i].getAttribute('href'))) {
+      links[i].target = '_blank';
+    }
+  }
+})();
+// adds .remark-code-has-line-highlighted class to <pre> parent elements
+// of code chunks containing highlighted lines with class .remark-code-line-highlighted
+(function(d) {
+  const hlines = d.querySelectorAll('.remark-code-line-highlighted');
+  const preParents = [];
+  const findPreParent = function(line, p = 0) {
+    if (p > 1) return null; // traverse up no further than grandparent
+    const el = line.parentElement;
+    return el.tagName === "PRE" ? el : findPreParent(el, ++p);
+  };
+
+  for (let line of hlines) {
+    let pre = findPreParent(line);
+    if (pre && !preParents.includes(pre)) preParents.push(pre);
+  }
+  preParents.forEach(p => p.classList.add("remark-code-has-line-highlighted"));
+})(document);</script>
+
+<script>
+slideshow._releaseMath = function(el) {
+  var i, text, code, codes = el.getElementsByTagName('code');
+  for (i = 0; i < codes.length;) {
+    code = codes[i];
+    if (code.parentNode.tagName !== 'PRE' && code.childElementCount === 0) {
+      text = code.textContent;
+      if (/^\\\((.|\s)+\\\)$/.test(text) || /^\\\[(.|\s)+\\\]$/.test(text) ||
+          /^\$\$(.|\s)+\$\$$/.test(text) ||
+          /^\\begin\{([^}]+)\}(.|\s)+\\end\{[^}]+\}$/.test(text)) {
+        code.outerHTML = code.innerHTML;  // remove <code></code>
+        continue;
+      }
+    }
+    i++;
+  }
+};
+slideshow._releaseMath(document);
+</script>
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+(function () {
+  var script = document.createElement('script');
+  script.type = 'text/javascript';
+  script.src  = 'https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-MML-AM_CHTML';
+  if (location.protocol !== 'file:' && /^https?:/.test(script.src))
+    script.src  = script.src.replace(/^https?:/, '');
+  document.getElementsByTagName('head')[0].appendChild(script);
+})();
+</script>
+  </body>
+</html>

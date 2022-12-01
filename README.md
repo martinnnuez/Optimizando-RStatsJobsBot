@@ -4,6 +4,10 @@
 
 **\@RStatsJobsBot** es el bot de Twitter con más seguidores en el ámbito de la oferta de puestos de trabajo vinculados con R. Su propósito es compartir todos los tweets cuyo objeto sea publicitar vacantes laborales relacionados con el lenguaje de programación R, así facilitando la ardua tarea de buscar un nuevo empleo. Desde su creación, el bot implementó un conjunto de reglas de decisión creadas por su desarrollador para discriminar los tweets que eran verdaderas ofertas de trabajo de las que no lo eran. A pesar de contar con un algoritmo de decisión, el bot cometió muchos errores de clasificación que lo llevaron a publicar contenido erróneo. Desde sus inicios, todos los tweets fueron guardados y curados manualmente por su desarrollador. En la actualidad, existe una base de datos de 6783 tweets de los cuales 249 son verdaderas ofertas de empleo.  
 
+**Pagina oficial**
+
+https://twitter.com/RStatsJobsBot
+
 ## Procedimiento de trabajo
 
 ### **1.** Preprocesamiento de los datos
